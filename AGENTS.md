@@ -87,6 +87,8 @@ All rules output JSON to stdout with `rule`, `passed`, and `findings` fields.
 
 **Report rendering:** `templates/report.md` uses Jinja2-style `{{ }}` placeholders. The orchestrator tries `import jinja2` first; falls back to a built-in micro-renderer that handles `{{ var }}`, `{{ var | upper }}`, and `{% for %}` blocks.
 
+**Maturity report (`maturity_report.py`):** Transforms per-repo JSON reports (from `run_all.py`) into the `ExternalBatchReport` wire format consumed by the component-maturity system. Reads `.github/config/repo_mappings.json` (vendored from the software catalog) to map repos to component-maturity catalog IDs via `jira_component.lower().replace(" ", "-")`. Repos sharing a Jira component are merged into one evaluation set. Accepts `--repo-mappings` to override the vendored file. Outputs `disconnected-readiness-report.json`, uploaded as a GitHub Actions artifact by `readiness-summary.yml`. See `docs/component-maturity-integration.md` for the full data flow and artifact contract. Rule definitions include `remediation` text and `reference_doc` URLs pointing to `docs/references/<rule-id>.md`.
+
 ## Severity Levels
 
 | Severity | Meaning                                                                    |

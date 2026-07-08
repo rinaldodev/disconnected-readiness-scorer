@@ -71,3 +71,22 @@ jobs:
           name: readiness-reports
           path: reports/
           retention-days: 30
+
+      - name: Generate maturity report
+        if: always()
+        run: |
+          report_dir=$(find reports -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if [ -n "$report_dir" ]; then
+            uv run python maturity_report.py "$report_dir" \
+              --output disconnected-readiness-report.json \
+              --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              --version "$(git describe --tags --always 2>/dev/null || echo 'unknown')"
+          fi
+
+      - name: Upload maturity report
+        if: always() && hashFiles('disconnected-readiness-report.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: disconnected-readiness-report
+          path: disconnected-readiness-report.json
+          retention-days: 10
