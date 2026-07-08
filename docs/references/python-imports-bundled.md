@@ -1,6 +1,6 @@
 ## Description
 
-Python dependencies in RHOAI component repos must be available from bundled/internal package repositories. Dependencies that require internet access at install or runtime will fail in disconnected environments.
+Python dependencies in RHOAI component repos must be available from bundled/internal package repositories. In disconnected environments, there is no access to PyPI or external Git repositories. Dependencies that require `pip install` from the internet at build or runtime will fail, breaking container image builds and causing runtime crashes when packages cannot be resolved.
 
 This rule is evaluated by the [disconnected-readiness-scorer](https://github.com/opendatahub-io/disconnected-readiness-scorer) static analysis tool. It checks requirements files, build configuration, and runtime source for dependencies that cannot be resolved without network access.
 
@@ -47,10 +47,10 @@ The rule scans three categories of files:
 Replace `git+https://` dependencies with published package versions available on PyPI or an internal mirror:
 
 ```
-# Before (blocker)
+# Before (blocker — requires internet to clone)
 git+https://github.com/org/custom-lib.git@v1.0#egg=custom-lib
 
-# After
+# After (resolvable from internal PyPI mirror)
 custom-lib==1.0.0
 ```
 
@@ -69,7 +69,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 Remove any runtime code that installs packages:
 
 ```python
-# Remove this pattern
+# Remove this pattern — will fail without internet
 import subprocess
 subprocess.run(["pip", "install", "some-package"])
 ```
@@ -80,7 +80,7 @@ For packages flagged as not in the known-bundled list (info severity), verify th
 
 ### Step 4: Vendor private dependencies
 
-For internal or private packages, vendor them into the container image:
+For internal or private packages not available on any mirror, vendor them into the container image:
 
 ```dockerfile
 COPY vendor/custom_lib-1.0.0-py3-none-any.whl /tmp/

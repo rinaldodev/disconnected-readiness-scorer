@@ -1,6 +1,6 @@
 ## Description
 
-All container image references in RHOAI component repos must use immutable `@sha256:` digest references instead of mutable tags (`:latest`, `:v1.2`, etc.). Mutable tags can resolve to different images over time and cannot be reliably pre-pulled or mirrored for disconnected deployments.
+All container image references in RHOAI component repos must use immutable `@sha256:` digest references instead of mutable tags (`:latest`, `:v1.2`, etc.). In disconnected deployments, the mirror registry is populated once during installation. If a tag resolves to a different digest than what was mirrored, the image pull will fail or — worse — silently pull an older version. Digest references guarantee that exactly the mirrored image is deployed.
 
 This rule is evaluated by the [disconnected-readiness-scorer](https://github.com/opendatahub-io/disconnected-readiness-scorer) static analysis tool. It scans source code and manifest files for image references that use tags instead of digests.
 
@@ -59,20 +59,26 @@ image: quay.io/org/image@sha256:abc123def456...
 
 ### Step 3: For params.env managed images
 
-If the image is managed through params.env, update the value there instead of in individual manifests:
+If the image is managed through params.env, update the value there — the kustomize pipeline propagates the digest to all rendered manifests:
 
 ```
+# params.env
 odh_component=quay.io/org/image@sha256:abc123def456...
 ```
-
-The kustomize pipeline will propagate the digest to all rendered manifests.
 
 ### Step 4: For hardcoded images in source code
 
 Move the image reference to a configuration mechanism (environment variable, config file, or params.env) rather than hardcoding it in source:
 
 ```go
-image := os.Getenv("RELATED_IMAGE_MY_COMPONENT")
+// Before (blocker — hardcoded tag)
+const DefaultImage = "quay.io/org/sidecar:v1"
+
+// After (operator-injected digest)
+image := os.Getenv("RELATED_IMAGE_SIDECAR")
+if image == "" {
+    image = "quay.io/org/sidecar@sha256:abc123..."
+}
 ```
 
 ## References

@@ -1,6 +1,6 @@
 ## Description
 
-Source code and manifests in RHOAI component repos must not contain hardcoded external URLs that would cause runtime failures in disconnected/air-gapped environments. Any outbound HTTP call to an external service will fail when the cluster has no internet access.
+Source code and manifests in RHOAI component repos must not contain hardcoded external URLs that would cause runtime failures in disconnected/air-gapped environments. In a disconnected cluster, there is no outbound internet access — any HTTP call to an external service will hang and eventually time out, causing pod crashes, degraded functionality, or silent data-path failures that are difficult to diagnose.
 
 This rule is evaluated by the [disconnected-readiness-scorer](https://github.com/opendatahub-io/disconnected-readiness-scorer) static analysis tool. It detects outbound HTTP calls, external URL references, and model download patterns across multiple languages.
 
@@ -51,15 +51,23 @@ YAML scanning also detects `curl`/`wget` calls embedded in Kubernetes CronJob, J
 
 ### Option 1: Make the URL configurable
 
-Replace hardcoded URLs with environment variables or configuration that operators can point at internal mirrors:
+Replace hardcoded URLs with environment variables that operators can override for internal mirrors:
 
+**In your Python code:**
 ```python
 # Before (blocker)
 response = requests.get("https://huggingface.co/models/bert")
 
-# After (info — configurable)
+# After (configurable — info severity)
 model_url = os.environ.get("MODEL_REGISTRY_URL", "https://huggingface.co")
 response = requests.get(f"{model_url}/models/bert")
+```
+
+**In your operator overlay** (so the mirror URL is injected in disconnected deployments):
+```yaml
+env:
+  - name: MODEL_REGISTRY_URL
+    value: "https://mirror.internal.example.com/huggingface"
 ```
 
 ### Option 2: Pre-cache model artifacts

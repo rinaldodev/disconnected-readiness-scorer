@@ -1,22 +1,19 @@
 ## Description
 
-RHOAI components that use the params.env + kustomize pattern must have a complete wiring chain from `params.env` through kustomize `configMapGenerator` entries into the rendered Kubernetes manifests. Broken wiring means the operator cannot inject mirrored image references at deployment time, causing image pull failures in disconnected clusters.
+RHOAI components that use the params.env + kustomize pattern must have a complete wiring chain from `params.env` through kustomize `configMapGenerator` entries into the rendered Kubernetes manifests. In disconnected deployments, the operator overrides image references by substituting values in this chain. If the wiring is broken — a hardcoded image bypasses params.env, or a Go controller reads an env var that kustomize never injects — the operator cannot substitute the mirrored registry URL, and the pod will fail with `ImagePullBackOff`.
 
 This rule is evaluated by the [disconnected-readiness-scorer](https://github.com/opendatahub-io/disconnected-readiness-scorer) static analysis tool. It validates the full wiring chain by running kustomize with probe values and comparing the rendered output against expected image references. **Requires the `kustomize` binary on PATH** — the rule is skipped with an info finding if kustomize is not available.
 
 ## What the Check Verifies
 
-The rule only runs when it discovers directories containing both a `params.env` file and `kustomization.yaml`. When the operator's overlay path mapping is available, non-production overlays (overlays not deployed by the operator) are filtered out to reduce false positives.
+The rule only runs when it discovers kustomize overlays (directories containing both `params.env` and `kustomization.yaml`). When the operator's overlay path mapping is available, non-production overlays are filtered out to reduce false positives.
 
-The validation is a multi-step process:
-
-1. **Overlay discovery**: Finds directories containing both a `params.env` file and `kustomization.yaml`.
-2. **Probe injection**: Creates a temporary copy of the overlay where all image values in `params.env` are replaced with a sentinel value (`probe.test/verify-params-env:check`).
-3. **Kustomize build**: Runs `kustomize build` on the probe overlay.
-4. **Hardcoded image detection**: Any image in the rendered output that is not the sentinel was hardcoded and bypasses the params.env wiring.
-5. **Wiring completeness**: Checks that each params.env key is consumed by a `configMapKeyRef` or kustomize replacement.
-6. **Go env var cross-reference**: Verifies that `os.Getenv("RELATED_IMAGE_*")` calls in Go source match variables present in rendered manifests.
-7. **Operator manifest cross-reference** (optional): Validates that `RELATED_IMAGE_*` vars mapped from params.env exist in the operator manifest.
+| Check | What's verified |
+|-------|----------------|
+| **Image wiring** | All images in rendered manifests come from `params.env` keys — no hardcoded images bypassing the substitution chain |
+| **Key consumption** | All image keys in `params.env` are consumed by a `configMapKeyRef` or kustomize replacement |
+| **Go env var consistency** | `os.Getenv("RELATED_IMAGE_*")` calls in Go source match variables present in rendered manifests |
+| **Operator manifest alignment** | `RELATED_IMAGE_*` vars mapped from params.env exist in the operator manifest |
 
 ### Severity classification
 
@@ -69,7 +66,7 @@ env:
         key: odh_my_sidecar
 ```
 
-Or use kustomize replacements:
+Or use kustomize replacements to inject the image directly into a container spec:
 
 ```yaml
 replacements:
@@ -86,15 +83,27 @@ replacements:
 
 ### Step 3: Verify in Go source
 
-If the component controller reads the image from an environment variable, ensure the variable name matches:
+If the component controller reads the image from an environment variable, ensure the variable name matches what kustomize injects:
 
 ```go
 image := os.Getenv("RELATED_IMAGE_MY_SIDECAR")
+if image == "" {
+    image = "quay.io/org/sidecar@sha256:abc123..." // fallback for connected
+}
 ```
 
 ### Step 4: Verify the operator manifest
 
-Confirm that the `RELATED_IMAGE_*` variable exists in the opendatahub-operator's kustomize overlays for the component. The operator manifest is the authoritative source for what images are mirrored in disconnected deployments.
+Confirm that the `RELATED_IMAGE_*` variable exists in the opendatahub-operator's kustomize overlays for the component:
+
+```yaml
+# In opendatahub-operator config/overlays/odh/my-component/deployment_patch.yaml
+env:
+  - name: RELATED_IMAGE_MY_SIDECAR
+    value: quay.io/org/sidecar@sha256:abc123...
+```
+
+The operator manifest is the authoritative source for what images are mirrored in disconnected deployments.
 
 ## References
 

@@ -1,6 +1,6 @@
 ## Description
 
-Every container image used by an RHOAI component must be registered in the operator manifest so the disconnected install helper can pre-pull and mirror it before deployment. Images that are not in the manifest will not be available in an air-gapped cluster.
+Every container image used by an RHOAI component must be registered in the operator's image management system. In disconnected deployments, the operator injects mirrored registry URLs for all registered images via environment variables or kustomize overlays. Images that are not registered cannot be mirrored by the disconnected install helper and will not be available in the air-gapped cluster, causing pod failures with `ImagePullBackOff` at runtime.
 
 This rule is evaluated by the [disconnected-readiness-scorer](https://github.com/opendatahub-io/disconnected-readiness-scorer) static analysis tool. It scans component source code and manifests to verify that all image references are accounted for in the operator's image management system.
 
@@ -33,7 +33,7 @@ When the orchestrator provides operator manifest data, the rule also cross-refer
 
 ### Option 1: Add a RELATED_IMAGE env var (env_var pattern)
 
-For repos using the env_var pattern, add a `RELATED_IMAGE_*` environment variable to the operator deployment that maps to the image reference:
+For repos using the env_var pattern, add a `RELATED_IMAGE_*` environment variable on the same line as the image reference in Go code:
 
 ```go
 image := os.Getenv("RELATED_IMAGE_MY_COMPONENT")
@@ -42,7 +42,14 @@ if image == "" {
 }
 ```
 
-The operator must also define this variable in its kustomize overlay so the disconnected install helper can inject the mirrored image reference.
+The operator must also define this variable in its kustomize overlay so the disconnected install helper can inject the mirrored image reference:
+
+```yaml
+# In the operator's component overlay (e.g. config/overlays/odh/deployment.yaml)
+env:
+  - name: RELATED_IMAGE_MY_COMPONENT
+    value: quay.io/org/my-component@sha256:abc123...
+```
 
 ### Option 2: Add to params.env (params.env pattern)
 
@@ -52,7 +59,7 @@ For repos using the params.env + kustomize pattern, add the image to `params.env
 odh_my_component=quay.io/org/my-component@sha256:abc123...
 ```
 
-Then wire it through kustomize by adding a `configMapGenerator` entry and a replacement or `configMapKeyRef` in the deployment manifest.
+Then wire it through kustomize by adding a `configMapGenerator` entry and a `configMapKeyRef` in the deployment manifest. See the [params-env-wiring reference](params-env-wiring.md) for complete wiring examples.
 
 ### Option 3: Add to relatedImages (static CSV pattern)
 
