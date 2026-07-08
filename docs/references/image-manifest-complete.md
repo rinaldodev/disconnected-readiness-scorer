@@ -59,7 +59,7 @@ For repos using the params.env + kustomize pattern, add the image to `params.env
 odh_my_component=quay.io/org/my-component@sha256:abc123...
 ```
 
-Then wire it through kustomize by adding a `configMapGenerator` entry and a `configMapKeyRef` in the deployment manifest. See the [params-env-wiring reference](params-env-wiring.md) for complete wiring examples.
+Then wire it through kustomize by adding a `configMapGenerator` entry and a `configMapKeyRef` in the deployment manifest. See the [params-env-wiring reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/references/params-env-wiring.md) for complete wiring examples.
 
 ### Option 3: Add to relatedImages (static CSV pattern)
 
@@ -71,7 +71,18 @@ relatedImages:
     image: quay.io/org/my-component@sha256:abc123...
 ```
 
+### Completing the full chain
+
+For any of the above, the full disconnected wiring chain also requires entries in the Build-Config repos. Ensure the `RELATED_IMAGE_*` is declared in both [RHOAI-Build-Config](https://github.com/red-hat-data-services/RHOAI-Build-Config) and [ODH-Build-Config](https://github.com/opendatahub-io/ODH-Build-Config) `bundle-patch.yaml`. OLM uses these to populate the CSV `relatedImages` list, which `oc-mirror` reads to catalog all images for mirroring.
+
+### False positives
+
+Build-time-only images (e.g. in Dockerfiles or CI scripts that never run on-cluster), images behind disabled feature gates, and files outside production scope are common false positives. If a file is not already auto-excepted, add a path exception in [config/config.yaml](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/config/config.yaml).
+
 ## References
 
 - [Disconnected install helper](https://github.com/opendatahub-io/opendatahub-operator/blob/main/docs/disconnected.md)
-- [disconnected-readiness-scorer source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/image_manifest_complete.py)
+- [validate-related-images.sh](https://github.com/opendatahub-io/opendatahub-operator/blob/main/.github/scripts/validate-related-images.sh) — operator CI check for the full wiring chain
+- [Remediation guide](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/remediation-guide.md#1-image-manifest-completeness-image-manifest-complete) — investigation workflow and false positive identification
+- [Rules reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/rules-reference.md#rule-image-manifest-complete) — implementation details
+- [Rule source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/image_manifest_complete.py)

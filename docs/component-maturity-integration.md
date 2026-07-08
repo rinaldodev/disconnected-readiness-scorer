@@ -18,7 +18,9 @@ The report evaluates each component against five rules. Per-rule remediation gui
 | `python-imports-bundled` | Python dependencies are available offline (no git+https, no runtime pip install) |
 | `params-env-wiring` | The params.env → kustomize → manifest wiring chain is complete |
 
-Rule definitions, status mapping, and the ExternalBatchReport generation live in `maturity_report.py`.
+Rule definitions, status mapping, and the ExternalBatchReport generation live in `maturity_report.py`. Each rule's `reference_doc` URL points to the corresponding file in `docs/references/`.
+
+**Authoring constraint:** The `docs/references/` files are consumed standalone by the component-maturity system — they may be rendered outside this repo with no access to sibling files. They must be fully self-contained: all links absolute, no relative paths, no assumptions about surrounding repo context.
 
 ## Data Flow
 

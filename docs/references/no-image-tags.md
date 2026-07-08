@@ -81,7 +81,13 @@ if image == "" {
 }
 ```
 
+### False positives
+
+Images in `params.env` files are already auto-downgraded to info severity — the release process resolves tags to digests in the Build-Config repos before they reach the CSV. Build-time images (Dockerfiles, CI scripts) that are never pulled on-cluster should be excepted. Non-image strings that happen to match the `registry/org/name:tag` pattern may occasionally trigger; add a path or message exception in [config/config.yaml](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/config/config.yaml) if confirmed safe.
+
 ## References
 
 - [OCI image spec: digests](https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests)
-- [disconnected-readiness-scorer source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/no_image_tags.py)
+- [Remediation guide](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/remediation-guide.md#2-mutable-image-tags-no-image-tags) — investigation workflow and false positive identification
+- [Rules reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/rules-reference.md#rule-no-image-tags) — implementation details
+- [Rule source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/no_image_tags.py)

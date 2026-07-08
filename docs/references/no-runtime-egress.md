@@ -90,8 +90,14 @@ If the external call is for optional functionality (telemetry, update checks, no
 
 ### Option 4: Request an exception
 
-If the external dependency is required and has been validated to work with an internal mirror, file an exception in `config/config.yaml` with a justification.
+If the external dependency is required and has been validated to work with an internal mirror, file an exception in [config/config.yaml](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/config/config.yaml) with a justification.
+
+### False positives
+
+HTTP client setup code that constructs a client but only calls internal endpoints, URLs that are configurable but where the config read happens on a different line, and files outside production scope are common false positives. The scanner detects configurability by looking for `os.Getenv`, `config.`, `viper.`, `${...}` on the same line — if the config read is on a different line, it may miss it. Verify manually and add a path or message exception if confirmed safe.
 
 ## References
 
-- [disconnected-readiness-scorer source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/no_runtime_egress.py)
+- [Remediation guide](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/remediation-guide.md#3-runtime-network-egress-no-runtime-egress) — investigation workflow and false positive identification
+- [Rules reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/rules-reference.md#rule-no-runtime-egress) — implementation details
+- [Rule source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/no_runtime_egress.py)

@@ -87,7 +87,7 @@ All rules output JSON to stdout with `rule`, `passed`, and `findings` fields.
 
 **Report rendering:** `templates/report.md` uses Jinja2-style `{{ }}` placeholders. The orchestrator tries `import jinja2` first; falls back to a built-in micro-renderer that handles `{{ var }}`, `{{ var | upper }}`, and `{% for %}` blocks.
 
-**Maturity report (`maturity_report.py`):** Transforms per-repo JSON reports (from `run_all.py`) into the `ExternalBatchReport` wire format consumed by the component-maturity system. Reads `.github/config/repo_mappings.json` (vendored from the software catalog) to map repos to component-maturity catalog IDs via `jira_component.lower().replace(" ", "-")`. Repos sharing a Jira component are merged into one evaluation set. Accepts `--repo-mappings` to override the vendored file. Outputs `disconnected-readiness-report.json`, uploaded as a GitHub Actions artifact by `readiness-summary.yml`. See `docs/component-maturity-integration.md` for the full data flow and artifact contract. Rule definitions include `remediation` text and `reference_doc` URLs pointing to `docs/references/<rule-id>.md`.
+**Maturity report (`maturity_report.py`):** Transforms per-repo JSON reports (from `run_all.py`) into the `ExternalBatchReport` wire format consumed by the component-maturity system. Reads `.github/config/repo_mappings.json` (vendored from the software catalog) to map repos to component-maturity catalog IDs via `jira_component.lower().replace(" ", "-")`. Repos sharing a Jira component are merged into one evaluation set. Accepts `--repo-mappings` to override the vendored file. Outputs `disconnected-readiness-report.json`, uploaded as a GitHub Actions artifact by `readiness-summary.yml`. See `docs/component-maturity-integration.md` for the full data flow and artifact contract. Rule definitions include `remediation` text and `reference_doc` URLs pointing to `docs/references/<rule-id>.md`. **The `docs/references/` files are consumed standalone by the component-maturity system** — they must be fully self-contained with only absolute links and no assumptions about surrounding repo context. When editing these files, do not use relative links or reference sibling files by relative path.
 
 ## Severity Levels
 
@@ -122,7 +122,7 @@ CI runs `ruff check` and `ruff format --check` before tests. PRs are blocked on 
 
 ## Post-Change Checklist
 
-After modifying rules, config, or architecture, update `README.md` and `AGENTS.md` to reflect the changes. Both files document rule behavior, config options, exceptions, and architecture — they must stay in sync with the code.
+After modifying rules, config, or architecture, update `README.md` and `AGENTS.md` to reflect the changes. Both files document rule behavior, config options, exceptions, and architecture — they must stay in sync with the code. When modifying rule behavior, also update the corresponding `docs/references/<rule-id>.md` — these are the primary per-rule docs surfaced by the component-maturity system. Remember: `docs/references/` files must use only absolute links (they are consumed standalone outside this repo).
 
 When modifying a function, verify it has test coverage before declaring the change complete. If the function is untested, add tests for the changed behavior — do not rely on the absence of test failures as proof of correctness.
 

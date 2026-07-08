@@ -57,7 +57,7 @@ Key utility functions:
 
 ### What it does
 
-Checks that every container image reference in the repository is accounted for in the disconnected image manifest. Automatically detects which image management pattern the repo uses, then validates accordingly.
+Checks that every container image reference in the repository is accounted for in the disconnected image manifest. See the [reference doc](references/image-manifest-complete.md) for user-facing guidance, severity classification, and remediation examples.
 
 ### Detection logic
 
@@ -120,7 +120,7 @@ Non-registry domains are filtered out: `github.com`, `gitlab.com`, `golang.org`,
 
 ### What it does
 
-Enforces that all container image references use `@sha256:` digest pinning instead of mutable tags. Tags cannot be reliably mirrored in disconnected environments.
+Enforces `@sha256:` digest pinning on all image references. See the [reference doc](references/no-image-tags.md) for user-facing guidance, severity classification, and remediation examples.
 
 ### Detection logic
 
@@ -154,7 +154,7 @@ Two regex patterns scan each line:
 
 ### What it does
 
-Detects outbound HTTP calls and network access in runtime source code that would fail in a disconnected environment. Distinguishes between hardcoded external URLs (must be fixed), configurable URLs (acceptable), and cluster-internal URLs (safe).
+Detects outbound HTTP calls and network access in runtime source code that would fail in a disconnected environment. See the [reference doc](references/no-runtime-egress.md) for user-facing guidance, severity classification, and remediation examples.
 
 ### Detection patterns by language
 
@@ -216,7 +216,7 @@ The `run()` function wraps execution in a try/except to prevent rule crashes fro
 
 ### What it does
 
-Validates that Python dependencies are available from bundled or internal mirrors. Detects dependencies that require internet access at install time.
+Validates that Python dependencies are available from bundled or internal mirrors. See the [reference doc](references/python-imports-bundled.md) for user-facing guidance, severity classification, and remediation examples.
 
 ### Detection logic
 
@@ -252,11 +252,7 @@ The rule maintains a hardcoded set of ~30 packages known to be commonly bundled 
 
 ### What it does
 
-Validates the full wiring chain for repos that use the `params.env` + kustomize pattern to manage container images:
-
-```text
-params.env → kustomize configMap → rendered manifest → Go os.Getenv
-```
+Validates the full `params.env` → kustomize → manifest → Go `os.Getenv` wiring chain. See the [reference doc](references/params-env-wiring.md) for user-facing guidance, severity classification, and remediation examples.
 
 ### Detection logic
 

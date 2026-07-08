@@ -105,7 +105,29 @@ env:
 
 The operator manifest is the authoritative source for what images are mirrored in disconnected deployments.
 
+### Completing the full chain
+
+The full disconnected wiring chain also requires a mapping in the operator's `*_support.go` and entries in the Build-Config repos:
+
+1. **Operator repo**: Add the params.env key → `RELATED_IMAGE_*` mapping in `internal/controller/components/<component>/<component>_support.go`:
+   ```go
+   imageParamMap = map[string]string{
+       "odh_my_sidecar": "RELATED_IMAGE_ODH_MY_SIDECAR_IMAGE",
+   }
+   ```
+
+2. **Build-Config repos**: Declare the `RELATED_IMAGE_*` in `bundle-patch.yaml` in both [RHOAI-Build-Config](https://github.com/red-hat-data-services/RHOAI-Build-Config) and [ODH-Build-Config](https://github.com/opendatahub-io/ODH-Build-Config).
+
+Run the operator's [validate-related-images.sh](https://github.com/opendatahub-io/opendatahub-operator/blob/main/.github/scripts/validate-related-images.sh) CI check to verify the chain is complete.
+
+### False positives
+
+Orphan `os.Getenv` findings are the most likely false positives — the scanner checks for `os.Getenv("RELATED_IMAGE_*")` repo-wide, which may match code in non-production binaries, utility functions that are never called at runtime, or vars injected through a different mechanism than kustomize. Verify the Go file is in the production binary's import graph before treating these as real blockers.
+
 ## References
 
 - [Kustomize configMapGenerator docs](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/configmapgenerator/)
-- [disconnected-readiness-scorer source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/params_env.py)
+- [validate-related-images.sh](https://github.com/opendatahub-io/opendatahub-operator/blob/main/.github/scripts/validate-related-images.sh) — operator CI check for the full wiring chain
+- [Remediation guide](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/remediation-guide.md#5-paramsenv--kustomize-wiring-params-env-wiring) — investigation workflow and false positive identification
+- [Rules reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/rules-reference.md#rule-params-env-wiring) — implementation details
+- [Rule source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/params_env.py)

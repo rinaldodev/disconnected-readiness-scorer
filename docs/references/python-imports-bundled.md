@@ -87,6 +87,12 @@ COPY vendor/custom_lib-1.0.0-py3-none-any.whl /tmp/
 RUN pip install /tmp/custom_lib-1.0.0-py3-none-any.whl
 ```
 
+### False positives
+
+Build-time and CI scripts that call `pip install` but never run on a customer cluster (e.g. lockfile generators, CVE scanners in `scripts/`, `.tekton/`, or `hack/`) are common false positives. Add a path exception in [config/config.yaml](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/config/config.yaml) if the file is not already auto-excepted.
+
 ## References
 
-- [disconnected-readiness-scorer source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/python_imports.py)
+- [Remediation guide](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/remediation-guide.md#4-python-dependency-availability-python-imports-bundled) — investigation workflow and false positive identification
+- [Rules reference](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/rules-reference.md#rule-python-imports-bundled) — implementation details
+- [Rule source](https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/rules/python_imports.py)
