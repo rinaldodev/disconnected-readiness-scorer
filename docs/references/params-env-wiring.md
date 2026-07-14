@@ -40,7 +40,7 @@ The rule only runs when it discovers kustomize overlays (directories containing 
 
 Add a key for the missing image in the component's `params.env` file:
 
-```
+```text
 odh_my_sidecar=quay.io/org/sidecar@sha256:abc123...
 ```
 

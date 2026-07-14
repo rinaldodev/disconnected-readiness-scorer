@@ -19,8 +19,7 @@ VERSION = "1.0.0"
 
 GITHUB_BASE = "https://github.com"
 REFERENCE_DOC_BASE = (
-    "https://github.com/opendatahub-io/disconnected-readiness-scorer"
-    "/blob/main/docs/references"
+    "https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/references"
 )
 
 logging.basicConfig(
@@ -39,7 +38,8 @@ RULES = {
         "category": "testing",
         "stage": "tp",
         "severity": "blocker",
-        "owner": "component-team",
+        "scope": "component",
+        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Register all container images used by this component in the "
             "operator manifest. For repos using the env-var pattern, add a "
@@ -55,7 +55,8 @@ RULES = {
         "category": "testing",
         "stage": "tp",
         "severity": "blocker",
-        "owner": "component-team",
+        "scope": "component",
+        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Replace all mutable image tags (:latest, :v1.2, etc.) with "
             "immutable @sha256: digest references. Mutable tags can resolve "
@@ -70,7 +71,8 @@ RULES = {
         "category": "testing",
         "stage": "tp",
         "severity": "blocker",
-        "owner": "component-team",
+        "scope": "component",
+        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Remove hardcoded external URLs from source code and manifests, "
             "or make them configurable via environment variables or "
@@ -85,7 +87,8 @@ RULES = {
         "category": "testing",
         "stage": "tp",
         "severity": "blocker",
-        "owner": "component-team",
+        "scope": "component",
+        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Ensure all Python package dependencies are included in the "
             "offline-bundled package set or vendored into the container "
@@ -100,7 +103,8 @@ RULES = {
         "category": "testing",
         "stage": "tp",
         "severity": "blocker",
-        "owner": "component-team",
+        "scope": "component",
+        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Complete the params.env wiring chain: every image reference "
             "must flow from params.env through a kustomize configMapGenerator "
@@ -115,11 +119,12 @@ RULES = {
 
 # ─── Repo mappings ─────────────────────────────────────────────────
 
-def _default_repo_mappings_path():
+
+def _default_repo_mappings_path() -> Path:
     return Path(__file__).parent / ".github" / "config" / "repo_mappings.json"
 
 
-def load_repo_mappings(path):
+def load_repo_mappings(path: str) -> dict[str, tuple[str, str, str]]:
     """Load repo_mappings.json and build a repo → (catalog_id, name, tier) lookup."""
     try:
         with open(path, encoding="utf-8") as f:
@@ -129,12 +134,15 @@ def load_repo_mappings(path):
         return {}
 
     mappings = data.get("mappings", [])
-    lookup = {}
+    lookup: dict[str, tuple[str, str, str]] = {}
     for entry in mappings:
         repo = entry.get("repo", "")
         jira_component = entry.get("jira_component", "")
         tier = entry.get("tier", "midstream")
         if repo and jira_component:
+            if repo in lookup:
+                logger.warning("Duplicate repo mapping for %s (keeping first entry)", repo)
+                continue
             catalog_id = jira_component.lower().replace(" ", "-")
             lookup[repo] = (catalog_id, jira_component, tier)
     return lookup
@@ -142,8 +150,9 @@ def load_repo_mappings(path):
 
 # ─── Location construction ─────────────────────────────────────────
 
-def _finding_location(repo_name, finding):
-    """Build a location dict from a finding with file and line info."""
+
+def _finding_location(repo_name: str, finding: dict) -> dict:
+    """Build an evidence dict from a finding with file and line info."""
     fpath = finding.get("file", "")
     line = finding.get("line", 0)
 
@@ -162,12 +171,16 @@ def _finding_location(repo_name, finding):
             url += f"#L{line}"
         loc["url"] = url
 
+    if line:
+        loc["line"] = line
+
     return loc
 
 
 # ─── Report building ──────────────────────────────────────────────
 
-def _load_repo_reports(reports_dir):
+
+def _load_repo_reports(reports_dir: str) -> dict[str, dict]:
     """Load all per-repo JSON reports from a directory.
 
     Returns: dict of {repo_name: parsed_json}
@@ -194,7 +207,10 @@ def _load_repo_reports(reports_dir):
     return reports
 
 
-def _build_component_data(repo_reports, repo_lookup):
+def _build_component_data(
+    repo_reports: dict[str, dict],
+    repo_lookup: dict[str, tuple[str, str, str]],
+) -> dict:
     """Group repo reports by catalog_id.
 
     Returns: {catalog_id: {name, repos: [{repo_name, report_data}]}}
@@ -209,16 +225,18 @@ def _build_component_data(repo_reports, repo_lookup):
 
         catalog_id, component_name, tier = mapping
         components[catalog_id]["name"] = component_name
-        components[catalog_id]["repos"].append({
-            "repo_name": repo_name,
-            "tier": tier,
-            "report": report_data,
-        })
+        components[catalog_id]["repos"].append(
+            {
+                "repo_name": repo_name,
+                "tier": tier,
+                "report": report_data,
+            }
+        )
 
     return dict(components)
 
 
-def _aggregate_evaluations(catalog_id, comp_data, checked_at):
+def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) -> list[dict]:
     """Build evaluation dicts for one component across all rules."""
     repo_entries = comp_data["repos"]
 
@@ -235,16 +253,27 @@ def _aggregate_evaluations(catalog_id, comp_data, checked_at):
         ],
     }
 
-    all_rules_seen = {}
+    # Pick the first repo (alphabetically) as the representative target
+    first_entry = sorted(repo_entries, key=lambda e: e["repo_name"])[0]
+    target = {
+        "kind": "repository",
+        "name": first_entry["repo_name"],
+        "url": f"{GITHUB_BASE}/{first_entry['repo_name']}",
+        "tier": first_entry.get("tier", "midstream"),
+    }
+
+    all_rules_seen: dict[str, list[dict]] = {}
     for entry in repo_entries:
         for rule in entry["report"].get("rules", []):
             rule_name = rule.get("name", "")
             if rule_name not in all_rules_seen:
                 all_rules_seen[rule_name] = []
-            all_rules_seen[rule_name].append({
-                "repo_name": entry["repo_name"],
-                "rule_data": rule,
-            })
+            all_rules_seen[rule_name].append(
+                {
+                    "repo_name": entry["repo_name"],
+                    "rule_data": rule,
+                }
+            )
 
     evaluations = []
     for rule_id, rule_def in RULES.items():
@@ -265,11 +294,9 @@ def _aggregate_evaluations(catalog_id, comp_data, checked_at):
         else:
             status = "unmet"
             count = len(blocker_findings)
-            repos_failing = sorted({
-                r["repo_name"]
-                for r in rule_entries
-                if not r["rule_data"].get("passed", True)
-            })
+            repos_failing = sorted(
+                {r["repo_name"] for r in rule_entries if not r["rule_data"].get("passed", True)}
+            )
             detail = (
                 f"{count} blocker(s) in {', '.join(repos_failing)}"
                 if repos_failing
@@ -277,28 +304,31 @@ def _aggregate_evaluations(catalog_id, comp_data, checked_at):
             )
 
         evaluation = {
-            "rule": dict(rule_def),
+            "rule_id": rule_id,
             "status": status,
             "detail": detail,
             "checked_at": checked_at,
             "component": component_dict,
+            "target": target,
         }
 
         if blocker_findings:
-            locations = []
+            evidence = []
             for repo_name, finding in blocker_findings:
                 loc = _finding_location(repo_name, finding)
                 if loc:
-                    locations.append(loc)
-            if locations:
-                evaluation["locations"] = locations
+                    evidence.append(loc)
+            if evidence:
+                evaluation["evidence"] = evidence
 
         evaluations.append(evaluation)
 
     return evaluations
 
 
-def build_report(reports_dir, repo_mappings_path, run_url, version):
+def build_report(
+    reports_dir: str, repo_mappings_path: str, run_url: str, version: str
+) -> dict | None:
     """Build the full ExternalBatchReport dict."""
     repo_lookup = load_repo_mappings(repo_mappings_path)
     if not repo_lookup:
@@ -323,6 +353,7 @@ def build_report(reports_dir, repo_mappings_path, run_url, version):
             "version": version,
         },
         "scanned_at": now,
+        "rules": dict(RULES),
         "evaluations": evaluations,
     }
     if run_url:
@@ -333,7 +364,8 @@ def build_report(reports_dir, repo_mappings_path, run_url, version):
 
 # ─── CLI ───────────────────────────────────────────────────────────
 
-def main():
+
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate ExternalBatchReport JSON for component-maturity",
     )
@@ -380,8 +412,15 @@ def main():
     total = len(report["evaluations"])
     unmet = sum(1 for e in report["evaluations"] if e["status"] == "unmet")
     components = len({e["component"]["id"] for e in report["evaluations"]})
+    rules_count = len(report.get("rules", {}))
     logger.info("Maturity report: %s", args.output)
-    logger.info("  Components: %d | Evaluations: %d | Unmet: %d", components, total, unmet)
+    logger.info(
+        "  Rules: %d | Components: %d | Evaluations: %d | Unmet: %d",
+        rules_count,
+        components,
+        total,
+        unmet,
+    )
 
     return 0
 

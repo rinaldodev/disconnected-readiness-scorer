@@ -48,7 +48,7 @@ batch scan (readiness-summary.yml)      maturity report pipeline
 
 ## Component Mapping
 
-Repos are mapped to component-maturity catalog IDs using the software catalog's `repo_mappings.json`. Each entry has `{repo, jira_component}` fields. The catalog ID is derived from the Jira component name, matching how component-maturity generates component IDs.
+Repos are mapped to component-maturity catalog IDs using the software catalog's `repo_mappings.json`. Each entry has `{repo, jira_component, tier}` fields. `repo` is the repository name, `jira_component` is the Jira component name used to derive the catalog ID, and `tier` indicates the repository tier (e.g., `midstream`, `upstream`) matching the software catalog's tier classification. The catalog ID is derived from the Jira component name, matching how component-maturity generates component IDs.
 
 A vendored copy lives at `.github/config/repo_mappings.json`. The `--repo-mappings` CLI flag can override it with a freshly fetched copy. To update the vendored copy, re-run the software catalog update script and copy the resulting `repo_mappings.json` here.
 

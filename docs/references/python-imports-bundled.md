@@ -46,7 +46,7 @@ The rule scans three categories of files:
 
 Replace `git+https://` dependencies with published package versions available on PyPI or an internal mirror:
 
-```
+```text
 # Before (blocker — requires internet to clone)
 git+https://github.com/org/custom-lib.git@v1.0#egg=custom-lib
 

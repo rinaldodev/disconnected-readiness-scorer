@@ -55,7 +55,7 @@ env:
 
 For repos using the params.env + kustomize pattern, add the image to `params.env`:
 
-```
+```text
 odh_my_component=quay.io/org/my-component@sha256:abc123...
 ```
 

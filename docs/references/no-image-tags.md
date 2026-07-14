@@ -61,7 +61,7 @@ image: quay.io/org/image@sha256:abc123def456...
 
 If the image is managed through params.env, update the value there — the kustomize pipeline propagates the digest to all rendered manifests:
 
-```
+```text
 # params.env
 odh_component=quay.io/org/image@sha256:abc123def456...
 ```
