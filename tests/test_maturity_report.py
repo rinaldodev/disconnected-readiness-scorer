@@ -151,20 +151,47 @@ class TestRepoMappings:
         lookup = load_repo_mappings(str(path))
         assert lookup == {}
 
-    def test_duplicate_repo_keeps_first(self, tmp_path):
+    def test_duplicate_repo_prefers_midstream_over_upstream(self, tmp_path):
+        """When the same repo appears at midstream and upstream, midstream wins."""
         path = tmp_path / "repo_mappings.json"
         _write_repo_mappings(
             path,
             [
-                {"repo": "org/repo", "jira_component": "First", "tier": "midstream"},
-                {"repo": "org/repo", "jira_component": "Second", "tier": "upstream"},
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "midstream"},
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "upstream"},
             ],
         )
 
         lookup = load_repo_mappings(str(path))
-        assert lookup["org/repo"][0] == "first"
-        assert lookup["org/repo"][1] == "First"
         assert lookup["org/repo"][2] == "midstream"
+
+    def test_duplicate_repo_prefers_higher_priority_tier(self, tmp_path):
+        """When upstream appears first but midstream second, midstream still wins."""
+        path = tmp_path / "repo_mappings.json"
+        _write_repo_mappings(
+            path,
+            [
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "upstream"},
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "midstream"},
+            ],
+        )
+
+        lookup = load_repo_mappings(str(path))
+        assert lookup["org/repo"][2] == "midstream"
+
+    def test_duplicate_repo_prefers_downstream(self, tmp_path):
+        """Downstream beats midstream and upstream."""
+        path = tmp_path / "repo_mappings.json"
+        _write_repo_mappings(
+            path,
+            [
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "midstream"},
+                {"repo": "org/repo", "jira_component": "Comp", "tier": "downstream"},
+            ],
+        )
+
+        lookup = load_repo_mappings(str(path))
+        assert lookup["org/repo"][2] == "downstream"
 
 
 # ─── 3. Finding locations ──────────────────────────────────────────

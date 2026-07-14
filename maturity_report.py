@@ -119,13 +119,23 @@ RULES = {
 
 # ─── Repo mappings ─────────────────────────────────────────────────
 
+# When a repo appears at multiple tiers, prefer the tier closest to the
+# productised artifact.  The scanner runs once per repo checkout so only
+# one mapping per repo is meaningful.
+_TIER_PRIORITY: dict[str, int] = {"downstream": 0, "midstream": 1, "upstream": 2}
+
 
 def _default_repo_mappings_path() -> Path:
     return Path(__file__).parent / ".github" / "config" / "repo_mappings.json"
 
 
 def load_repo_mappings(path: str) -> dict[str, tuple[str, str, str]]:
-    """Load repo_mappings.json and build a repo → (catalog_id, name, tier) lookup."""
+    """Load repo_mappings.json and build a repo → (catalog_id, name, tier) lookup.
+
+    When a repo appears more than once (e.g. at different tiers), the entry
+    closest to the productised artifact wins (downstream > midstream > upstream)
+    and a warning is logged.
+    """
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -140,10 +150,22 @@ def load_repo_mappings(path: str) -> dict[str, tuple[str, str, str]]:
         jira_component = entry.get("jira_component", "")
         tier = entry.get("tier", "midstream")
         if repo and jira_component:
-            if repo in lookup:
-                logger.warning("Duplicate repo mapping for %s (keeping first entry)", repo)
-                continue
             catalog_id = jira_component.lower().replace(" ", "-")
+            if repo in lookup:
+                existing_tier = lookup[repo][2]
+                existing_prio = _TIER_PRIORITY.get(existing_tier, 99)
+                new_prio = _TIER_PRIORITY.get(tier, 99)
+                kept = existing_tier if existing_prio <= new_prio else tier
+                logger.warning(
+                    "Duplicate repo mapping for %s (tiers: %s, %s — keeping %s)",
+                    repo,
+                    existing_tier,
+                    tier,
+                    kept,
+                )
+                if new_prio < existing_prio:
+                    lookup[repo] = (catalog_id, jira_component, tier)
+                continue
             lookup[repo] = (catalog_id, jira_component, tier)
     return lookup
 

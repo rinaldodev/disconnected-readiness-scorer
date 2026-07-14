@@ -439,12 +439,6 @@
       "tier": "midstream"
     },
     {
-      "repo": "opendatahub-io/codeflare-operator",
-      "jira_project": "RHOAIENG",
-      "jira_component": "Workload Orchestration",
-      "tier": "upstream"
-    },
-    {
       "repo": "opendatahub-io/codeflare-operator-poc",
       "jira_project": "RHOAIENG",
       "jira_component": "Workload Orchestration",
@@ -875,12 +869,6 @@
       "jira_project": "RHAIENG",
       "jira_component": "Notebooks",
       "tier": "midstream"
-    },
-    {
-      "repo": "opendatahub-io/notebooks",
-      "jira_project": "RHAIENG",
-      "jira_component": "Notebooks",
-      "tier": "upstream"
     },
     {
       "repo": "opendatahub-io/observatory",
