@@ -67,19 +67,23 @@ class TestRuleDefinitions:
     REQUIRED_FIELDS = {
         "id",
         "name",
-        "category",
-        "stage",
         "severity",
-        "scope",
-        "owner",
         "remediation",
         "reference_doc",
     }
+
+    # Fields that belong to internal maturity system and must not appear
+    FORBIDDEN_FIELDS = {"category", "stage", "scope", "owner", "depends_on"}
 
     def test_all_rules_have_required_fields(self):
         for rule_id, rule_def in RULES.items():
             missing = self.REQUIRED_FIELDS - set(rule_def.keys())
             assert not missing, f"Rule {rule_id} missing fields: {missing}"
+
+    def test_no_internal_fields_present(self):
+        for rule_id, rule_def in RULES.items():
+            leaked = self.FORBIDDEN_FIELDS & set(rule_def.keys())
+            assert not leaked, f"Rule {rule_id} contains internal fields: {leaked}"
 
     def test_rule_ids_match_keys(self):
         for rule_id, rule_def in RULES.items():
@@ -93,16 +97,6 @@ class TestRuleDefinitions:
 
     def test_five_rules_defined(self):
         assert len(RULES) == 5
-
-    def test_scope_is_component(self):
-        for rule_id, rule_def in RULES.items():
-            assert rule_def["scope"] == "component", f"Rule {rule_id} scope should be 'component'"
-
-    def test_owner_is_external(self):
-        for rule_id, rule_def in RULES.items():
-            assert rule_def["owner"] == "external:disconnected-readiness-scorer", (
-                f"Rule {rule_id} owner should be 'external:disconnected-readiness-scorer'"
-            )
 
 
 # ─── 2. Repo mappings ──────────────────────────────────────────────
@@ -322,12 +316,13 @@ class TestCatalogIdMerging:
         report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
 
         shared_evals = [
-            e for e in report["evaluations"] if e["component"]["id"] == "shared-component"
+            e for e in report["evaluations"] if e["component_id"] == "shared-component"
         ]
         assert len(shared_evals) == 5
 
-        repos_in_component = {r["name"] for r in shared_evals[0]["component"]["repositories"]}
-        assert repos_in_component == {"org/repo-a", "org/repo-b"}
+        # Component catalog should list both repos
+        comp = next(c for c in report["components"] if c["id"] == "shared-component")
+        assert set(comp["repositories"]) == {"org/repo-a", "org/repo-b"}
 
         tags_eval = next(e for e in shared_evals if e["rule_id"] == "no-image-tags")
         assert tags_eval["status"] == "unmet"
@@ -441,23 +436,45 @@ class TestBuildReport:
         assert "scanned_at" in report
         assert len(report["evaluations"]) > 0
 
-        # Top-level rules catalog
-        assert "rules" in report
-        assert set(report["rules"].keys()) == set(RULES.keys())
+        # Top-level catalogs
+        assert isinstance(report["repositories"], list)
+        assert len(report["repositories"]) == 1
+        assert report["repositories"][0]["name"] == "org/repo"
+        assert report["repositories"][0]["url"] == "https://github.com/org/repo"
 
-        # Evaluations use rule_id references
+        assert isinstance(report["images"], list)
+        assert report["images"] == []
+
+        assert isinstance(report["components"], list)
+        assert len(report["components"]) == 1
+        assert report["components"][0]["id"] == "test-component"
+        assert report["components"][0]["repositories"] == ["org/repo"]
+
+        # Rules as a list without internal fields
+        assert isinstance(report["rules"], list)
+        rule_ids = {r["id"] for r in report["rules"]}
+        assert rule_ids == set(RULES.keys())
+        for rule in report["rules"]:
+            assert "category" not in rule
+            assert "stage" not in rule
+            assert "scope" not in rule
+            assert "owner" not in rule
+
+        # Evaluations use component_id references, not inlined component
         for ev in report["evaluations"]:
             assert "rule_id" in ev
-            assert ev["rule_id"] in report["rules"]
+            assert ev["rule_id"] in rule_ids
+            assert "component_id" in ev
+            assert "component" not in ev  # no inlined component
             assert "rule" not in ev  # no inlined rule dict
 
-        # Evaluations include target
+        # Targets have no tier
         for ev in report["evaluations"]:
             assert "target" in ev
             assert ev["target"]["kind"] == "repository"
             assert ev["target"]["name"] == "org/repo"
             assert ev["target"]["url"] == "https://github.com/org/repo"
-            assert "tier" in ev["target"]
+            assert "tier" not in ev["target"]
 
     def test_no_run_url_omits_url_field(self, tmp_path):
         reports_dir = tmp_path / "reports"

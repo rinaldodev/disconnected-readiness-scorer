@@ -35,11 +35,7 @@ RULES = {
     "image-manifest-complete": {
         "id": "image-manifest-complete",
         "name": "Image manifest completeness",
-        "category": "testing",
-        "stage": "tp",
         "severity": "blocker",
-        "scope": "component",
-        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Register all container images used by this component in the "
             "operator manifest. For repos using the env-var pattern, add a "
@@ -52,11 +48,7 @@ RULES = {
     "no-image-tags": {
         "id": "no-image-tags",
         "name": "No mutable image tags",
-        "category": "testing",
-        "stage": "tp",
         "severity": "blocker",
-        "scope": "component",
-        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Replace all mutable image tags (:latest, :v1.2, etc.) with "
             "immutable @sha256: digest references. Mutable tags can resolve "
@@ -68,11 +60,7 @@ RULES = {
     "no-runtime-egress": {
         "id": "no-runtime-egress",
         "name": "No runtime external calls",
-        "category": "testing",
-        "stage": "tp",
         "severity": "blocker",
-        "scope": "component",
-        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Remove hardcoded external URLs from source code and manifests, "
             "or make them configurable via environment variables or "
@@ -84,11 +72,7 @@ RULES = {
     "python-imports-bundled": {
         "id": "python-imports-bundled",
         "name": "Python imports bundled",
-        "category": "testing",
-        "stage": "tp",
         "severity": "blocker",
-        "scope": "component",
-        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Ensure all Python package dependencies are included in the "
             "offline-bundled package set or vendored into the container "
@@ -100,11 +84,7 @@ RULES = {
     "params-env-wiring": {
         "id": "params-env-wiring",
         "name": "Params.env wiring",
-        "category": "testing",
-        "stage": "tp",
         "severity": "blocker",
-        "scope": "component",
-        "owner": "external:disconnected-readiness-scorer",
         "remediation": (
             "Complete the params.env wiring chain: every image reference "
             "must flow from params.env through a kustomize configMapGenerator "
@@ -262,26 +242,12 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
     """Build evaluation dicts for one component across all rules."""
     repo_entries = comp_data["repos"]
 
-    component_dict = {
-        "id": catalog_id,
-        "name": comp_data["name"],
-        "repositories": [
-            {
-                "name": entry["repo_name"],
-                "url": f"{GITHUB_BASE}/{entry['repo_name']}",
-                "tier": entry.get("tier", "midstream"),
-            }
-            for entry in repo_entries
-        ],
-    }
-
     # Pick the first repo (alphabetically) as the representative target
     first_entry = sorted(repo_entries, key=lambda e: e["repo_name"])[0]
     target = {
         "kind": "repository",
         "name": first_entry["repo_name"],
         "url": f"{GITHUB_BASE}/{first_entry['repo_name']}",
-        "tier": first_entry.get("tier", "midstream"),
     }
 
     all_rules_seen: dict[str, list[dict]] = {}
@@ -327,11 +293,11 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
 
         evaluation = {
             "rule_id": rule_id,
+            "component_id": catalog_id,
+            "target": target,
             "status": status,
             "detail": detail,
             "checked_at": checked_at,
-            "component": component_dict,
-            "target": target,
         }
 
         if blocker_findings:
@@ -364,24 +330,47 @@ def build_report(
     now = datetime.now(UTC).isoformat()
     component_data = _build_component_data(repo_reports, repo_lookup)
 
+    # Build top-level catalogs
+    repos_catalog: dict[str, dict] = {}  # keyed by name
+    components_catalog: list[dict] = []
+
+    for catalog_id, comp_data in sorted(component_data.items()):
+        repo_names = []
+        for entry in comp_data["repos"]:
+            name = entry["repo_name"]
+            repo_names.append(name)
+            if name not in repos_catalog:
+                repos_catalog[name] = {
+                    "name": name,
+                    "url": f"{GITHUB_BASE}/{name}",
+                }
+        components_catalog.append({
+            "id": catalog_id,
+            "name": comp_data["name"],
+            "repositories": sorted(set(repo_names)),
+        })
+
     evaluations = []
     for catalog_id, comp_data in sorted(component_data.items()):
         evals = _aggregate_evaluations(catalog_id, comp_data, now)
         evaluations.extend(evals)
 
-    report = {
-        "source": {
-            "tool": "disconnected-readiness-scorer",
-            "version": version,
-        },
-        "scanned_at": now,
-        "rules": dict(RULES),
-        "evaluations": evaluations,
+    source: dict = {
+        "tool": "disconnected-readiness-scorer",
+        "version": version,
     }
     if run_url:
-        report["source"]["url"] = run_url
+        source["url"] = run_url
 
-    return report
+    return {
+        "source": source,
+        "scanned_at": now,
+        "repositories": list(repos_catalog.values()),
+        "images": [],
+        "components": components_catalog,
+        "rules": list(RULES.values()),
+        "evaluations": evaluations,
+    }
 
 
 # ─── CLI ───────────────────────────────────────────────────────────
@@ -433,8 +422,8 @@ def main() -> int:
 
     total = len(report["evaluations"])
     unmet = sum(1 for e in report["evaluations"] if e["status"] == "unmet")
-    components = len({e["component"]["id"] for e in report["evaluations"]})
-    rules_count = len(report.get("rules", {}))
+    components = len({e["component_id"] for e in report["evaluations"]})
+    rules_count = len(report.get("rules", []))
     logger.info("Maturity report: %s", args.output)
     logger.info(
         "  Rules: %d | Components: %d | Evaluations: %d | Unmet: %d",
