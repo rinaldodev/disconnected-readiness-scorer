@@ -4,6 +4,7 @@ import json
 
 from maturity_report import (
     RULES,
+    _extract_exception_reasons,
     _finding_location,
     build_report,
     load_repo_mappings,
@@ -204,17 +205,15 @@ class TestFindingLocation:
         assert loc["url"] == "https://github.com/org/repo/blob/HEAD/main.go"
         assert "line" not in loc
 
-    def test_no_file_uses_message(self):
+    def test_no_file_returns_none(self):
         loc = _finding_location(
             "org/repo", {"file": "", "line": 0, "message": "Something went wrong"}
         )
-        assert loc["label"] == "Something went wrong"
-        assert "url" not in loc
+        assert loc is None
 
-    def test_long_message_truncated(self):
-        msg = "x" * 200
-        loc = _finding_location("org/repo", {"file": "", "line": 0, "message": msg})
-        assert len(loc["label"]) == 120
+    def test_git_sha_in_url(self):
+        loc = _finding_location("org/repo", {"file": "main.go", "line": 10}, git_sha="abc123")
+        assert "/blob/abc123/" in loc["url"]
 
 
 # ─── 4. Status mapping ─────────────────────────────────────────────
@@ -315,9 +314,7 @@ class TestCatalogIdMerging:
 
         report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
 
-        shared_evals = [
-            e for e in report["evaluations"] if e["component_id"] == "shared-component"
-        ]
+        shared_evals = [e for e in report["evaluations"] if e["component_id"] == "shared-component"]
         assert len(shared_evals) == 5
 
         # Component catalog should list both repos
@@ -529,3 +526,164 @@ class TestEmptyInput:
 
         report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
         assert report["evaluations"] == []
+
+
+# ─── 10. Exception policy ──────────────────────────────────────────
+
+
+class TestExceptionPolicy:
+    def test_all_rules_have_exception_policy(self):
+        for rule_id, rule_def in RULES.items():
+            assert "exception_policy" in rule_def, f"Rule {rule_id} missing exception_policy"
+            ep = rule_def["exception_policy"]
+            assert "mechanism" in ep
+            assert "source" in ep
+            assert "url" in ep["source"]
+            assert ep["source"]["url"].startswith("https://")
+
+    def test_exception_policy_in_report(self, tmp_path):
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        _write_repo_report(reports_dir, "org/repo", PASSING_RULES)
+
+        mappings_path = tmp_path / "mappings.json"
+        _write_repo_mappings(
+            mappings_path,
+            [{"repo": "org/repo", "jira_component": "Test", "tier": "midstream"}],
+        )
+
+        report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
+        for rule in report["rules"]:
+            assert "exception_policy" in rule
+            assert "mechanism" in rule["exception_policy"]
+            assert "source" in rule["exception_policy"]
+
+
+# ─── 11. Exception on evaluations ──────────────────────────────────
+
+
+EXCEPTED_RULES = [
+    {
+        "name": "no-image-tags",
+        "passed": True,  # passed because all blockers were excepted
+        "blockers": 0,
+        "infos": 1,
+        "findings": [
+            {
+                "severity": "info",
+                "file": "config/manager/kustomization.yaml",
+                "line": 12,
+                "image": "quay.io/example/foo:latest",
+                "message": "Mutable tag :latest on image quay.io/example/foo:latest"
+                " [Exception: test images use mutable tags]",
+            },
+        ],
+    },
+    {"name": "image-manifest-complete", "passed": True, "blockers": 0, "infos": 0, "findings": []},
+    {"name": "no-runtime-egress", "passed": True, "blockers": 0, "infos": 0, "findings": []},
+    {"name": "python-imports-bundled", "passed": True, "blockers": 0, "infos": 0, "findings": []},
+    {"name": "params-env-wiring", "passed": True, "blockers": 0, "infos": 0, "findings": []},
+]
+
+
+class TestExceptionOnEvaluations:
+    def test_excepted_rule_is_unmet_with_exception(self, tmp_path):
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        _write_repo_report(reports_dir, "org/repo", EXCEPTED_RULES)
+
+        mappings_path = tmp_path / "mappings.json"
+        _write_repo_mappings(
+            mappings_path,
+            [{"repo": "org/repo", "jira_component": "Test", "tier": "midstream"}],
+        )
+
+        report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
+
+        tags_eval = next(e for e in report["evaluations"] if e["rule_id"] == "no-image-tags")
+        assert tags_eval["status"] == "unmet"
+        assert "exception" in tags_eval
+        assert "test images use mutable tags" in tags_eval["exception"]["reason"]
+        assert "url" in tags_eval["exception"]["location"]
+
+    def test_truly_passing_rule_has_no_exception(self, tmp_path):
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        _write_repo_report(reports_dir, "org/repo", EXCEPTED_RULES)
+
+        mappings_path = tmp_path / "mappings.json"
+        _write_repo_mappings(
+            mappings_path,
+            [{"repo": "org/repo", "jira_component": "Test", "tier": "midstream"}],
+        )
+
+        report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
+
+        met_evals = [e for e in report["evaluations"] if e["rule_id"] != "no-image-tags"]
+        for ev in met_evals:
+            assert ev["status"] == "met"
+            assert "exception" not in ev
+
+
+class TestExtractExceptionReasons:
+    def test_single_reason(self):
+        findings = [
+            {"message": "some finding [Exception: reason one]"},
+        ]
+        assert _extract_exception_reasons(findings) == ["reason one"]
+
+    def test_deduplicates(self):
+        findings = [
+            {"message": "a [Exception: same reason]"},
+            {"message": "b [Exception: same reason]"},
+        ]
+        assert _extract_exception_reasons(findings) == ["same reason"]
+
+    def test_no_exceptions(self):
+        findings = [{"message": "clean finding"}]
+        assert _extract_exception_reasons(findings) == []
+
+
+# ─── 12. Repository ref ───────────────────────────────────────────
+
+
+class TestRepositoryRef:
+    def test_git_sha_populates_ref(self, tmp_path):
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        data = {
+            "repo": "org/repo",
+            "date": "2026-07-15",
+            "score": "READY",
+            "git_sha": "abc123def456",
+            "rules": PASSING_RULES,
+        }
+        (reports_dir / "repo.json").write_text(json.dumps(data))
+
+        mappings_path = tmp_path / "mappings.json"
+        _write_repo_mappings(
+            mappings_path,
+            [{"repo": "org/repo", "jira_component": "Test", "tier": "midstream"}],
+        )
+
+        report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
+        assert len(report["repositories"]) == 1
+        repo = report["repositories"][0]
+        assert "ref" in repo
+        assert repo["ref"]["value"] == "abc123def456"
+        assert repo["ref"]["type"] == "commit"
+
+    def test_no_git_sha_omits_ref(self, tmp_path):
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        _write_repo_report(reports_dir, "org/repo", PASSING_RULES)
+
+        mappings_path = tmp_path / "mappings.json"
+        _write_repo_mappings(
+            mappings_path,
+            [{"repo": "org/repo", "jira_component": "Test", "tier": "midstream"}],
+        )
+
+        report = build_report(str(reports_dir), str(mappings_path), "", "1.0.0")
+        repo = report["repositories"][0]
+        assert "ref" not in repo

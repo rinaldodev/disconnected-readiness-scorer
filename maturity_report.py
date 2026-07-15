@@ -21,6 +21,11 @@ GITHUB_BASE = "https://github.com"
 REFERENCE_DOC_BASE = (
     "https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/docs/references"
 )
+EXCEPTION_CONFIG_URL = (
+    "https://github.com/opendatahub-io/disconnected-readiness-scorer/blob/main/config/config.yaml"
+)
+
+_EXCEPTION_MARKER = " [Exception: "
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +35,14 @@ logger = logging.getLogger(__name__)
 
 
 # ─── Rule definitions ──────────────────────────────────────────────
+
+_EXCEPTION_POLICY = {
+    "mechanism": "Path/image pattern match in central config.yaml",
+    "source": {
+        "url": EXCEPTION_CONFIG_URL,
+        "label": "config/config.yaml",
+    },
+}
 
 RULES = {
     "image-manifest-complete": {
@@ -44,6 +57,7 @@ RULES = {
             "and wire it through kustomize."
         ),
         "reference_doc": f"{REFERENCE_DOC_BASE}/image-manifest-complete.md",
+        "exception_policy": _EXCEPTION_POLICY,
     },
     "no-image-tags": {
         "id": "no-image-tags",
@@ -56,6 +70,7 @@ RULES = {
             "for disconnected deployments."
         ),
         "reference_doc": f"{REFERENCE_DOC_BASE}/no-image-tags.md",
+        "exception_policy": _EXCEPTION_POLICY,
     },
     "no-runtime-egress": {
         "id": "no-runtime-egress",
@@ -68,6 +83,7 @@ RULES = {
             "network call to an external service will fail."
         ),
         "reference_doc": f"{REFERENCE_DOC_BASE}/no-runtime-egress.md",
+        "exception_policy": _EXCEPTION_POLICY,
     },
     "python-imports-bundled": {
         "id": "python-imports-bundled",
@@ -80,6 +96,7 @@ RULES = {
             "without network access."
         ),
         "reference_doc": f"{REFERENCE_DOC_BASE}/python-imports-bundled.md",
+        "exception_policy": _EXCEPTION_POLICY,
     },
     "params-env-wiring": {
         "id": "params-env-wiring",
@@ -93,6 +110,7 @@ RULES = {
             "Go os.Getenv calls."
         ),
         "reference_doc": f"{REFERENCE_DOC_BASE}/params-env-wiring.md",
+        "exception_policy": _EXCEPTION_POLICY,
     },
 }
 
@@ -153,26 +171,27 @@ def load_repo_mappings(path: str) -> dict[str, tuple[str, str, str]]:
 # ─── Location construction ─────────────────────────────────────────
 
 
-def _finding_location(repo_name: str, finding: dict) -> dict:
-    """Build an evidence dict from a finding with file and line info."""
-    fpath = finding.get("file", "")
-    line = finding.get("line", 0)
+def _finding_location(repo_name: str, finding: dict, git_sha: str = "") -> dict | None:
+    """Build an evidence location from a finding.
 
+    Returns None for findings without a file path, since the external report
+    spec requires every evidence location to have a URL.
+    """
+    fpath = finding.get("file", "")
     if not fpath:
-        label = finding.get("message", "")[:120]
-    elif line:
+        return None
+
+    line = finding.get("line", 0)
+    tree = git_sha or "HEAD"
+    url = f"{GITHUB_BASE}/{repo_name}/blob/{tree}/{fpath}"
+
+    if line:
         label = f"{fpath}:{line}"
+        url += f"#L{line}"
     else:
         label = fpath
 
-    loc = {"label": label}
-
-    if fpath:
-        url = f"{GITHUB_BASE}/{repo_name}/blob/HEAD/{fpath}"
-        if line:
-            url += f"#L{line}"
-        loc["url"] = url
-
+    loc: dict = {"url": url, "label": label}
     if line:
         loc["line"] = line
 
@@ -238,6 +257,24 @@ def _build_component_data(
     return dict(components)
 
 
+def _extract_exception_reasons(findings: list[dict]) -> list[str]:
+    """Extract unique exception reasons from findings with the [Exception: ...] marker."""
+    reasons = []
+    seen: set[str] = set()
+    for f in findings:
+        msg = f.get("message", "")
+        idx = msg.find(_EXCEPTION_MARKER)
+        if idx < 0:
+            continue
+        start = idx + len(_EXCEPTION_MARKER)
+        end = msg.find("]", start)
+        reason = msg[start:end] if end > start else msg[start:]
+        if reason and reason not in seen:
+            reasons.append(reason)
+            seen.add(reason)
+    return reasons
+
+
 def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) -> list[dict]:
     """Build evaluation dicts for one component across all rules."""
     repo_entries = comp_data["repos"]
@@ -259,6 +296,7 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
             all_rules_seen[rule_name].append(
                 {
                     "repo_name": entry["repo_name"],
+                    "git_sha": entry["report"].get("git_sha", ""),
                     "rule_data": rule,
                 }
             )
@@ -271,14 +309,26 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
 
         all_passed = all(r["rule_data"].get("passed", True) for r in rule_entries)
         blocker_findings = []
+        excepted_findings = []
         for r in rule_entries:
             for f in r["rule_data"].get("findings", []):
                 if f.get("severity") == "blocker":
-                    blocker_findings.append((r["repo_name"], f))
+                    blocker_findings.append((r["repo_name"], r["git_sha"], f))
+                elif _EXCEPTION_MARKER in f.get("message", ""):
+                    excepted_findings.append(f)
 
-        if all_passed:
+        has_exceptions = len(excepted_findings) > 0
+
+        if all_passed and not has_exceptions:
             status = "met"
             detail = f"All repos passed {rule_def['name'].lower()} checks"
+        elif all_passed and has_exceptions:
+            # All blockers were excepted -- factually unmet but waived
+            status = "unmet"
+            detail = (
+                f"{len(excepted_findings)} finding(s) excepted across "
+                f"{', '.join(sorted({r['repo_name'] for r in rule_entries}))}"
+            )
         else:
             status = "unmet"
             count = len(blocker_findings)
@@ -291,7 +341,7 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
                 else f"{count} blocker(s) found"
             )
 
-        evaluation = {
+        evaluation: dict = {
             "rule_id": rule_id,
             "component_id": catalog_id,
             "target": target,
@@ -302,12 +352,22 @@ def _aggregate_evaluations(catalog_id: str, comp_data: dict, checked_at: str) ->
 
         if blocker_findings:
             evidence = []
-            for repo_name, finding in blocker_findings:
-                loc = _finding_location(repo_name, finding)
+            for repo_name, git_sha, finding in blocker_findings:
+                loc = _finding_location(repo_name, finding, git_sha=git_sha)
                 if loc:
                     evidence.append(loc)
             if evidence:
                 evaluation["evidence"] = evidence
+
+        if all_passed and has_exceptions:
+            reasons = _extract_exception_reasons(excepted_findings)
+            evaluation["exception"] = {
+                "reason": "; ".join(reasons) if reasons else "configured exception",
+                "location": {
+                    "url": EXCEPTION_CONFIG_URL,
+                    "label": "config/config.yaml",
+                },
+            }
 
         evaluations.append(evaluation)
 
@@ -340,15 +400,21 @@ def build_report(
             name = entry["repo_name"]
             repo_names.append(name)
             if name not in repos_catalog:
-                repos_catalog[name] = {
+                repo_entry: dict = {
                     "name": name,
                     "url": f"{GITHUB_BASE}/{name}",
                 }
-        components_catalog.append({
-            "id": catalog_id,
-            "name": comp_data["name"],
-            "repositories": sorted(set(repo_names)),
-        })
+                git_sha = entry["report"].get("git_sha", "")
+                if git_sha:
+                    repo_entry["ref"] = {"value": git_sha, "type": "commit"}
+                repos_catalog[name] = repo_entry
+        components_catalog.append(
+            {
+                "id": catalog_id,
+                "name": comp_data["name"],
+                "repositories": sorted(set(repo_names)),
+            }
+        )
 
     evaluations = []
     for catalog_id, comp_data in sorted(component_data.items()):
