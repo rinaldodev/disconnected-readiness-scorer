@@ -12,6 +12,7 @@ Managed via `pyproject.toml` + [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv sync --extra dev          # install all dev dependencies
+pre-commit install           # install git hooks (runs ruff on commit)
 ```
 
 Runtime deps: `pyyaml` (required). Optional: `jinja2` (for Jinja2-based report rendering, falls back to built-in renderer).

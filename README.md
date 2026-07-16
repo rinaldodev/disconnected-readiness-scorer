@@ -270,7 +270,7 @@ uses: opendatahub-io/disconnected-readiness-scorer/.github/workflows/disconnecte
 
 **Complete Documentation:**
 - **[docs/VERSIONING.md](docs/VERSIONING.md)** - Consumer strategy guide (when to use @v1 vs @v1.2.3 vs @sha)
-- **[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md)** - Release procedures and troubleshooting  
+- **[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md)** - Release procedures and troubleshooting
 - **[Releases](https://github.com/opendatahub-io/disconnected-readiness-scorer/releases)** - Version history and release notes
 
 ### Manual Setup (alternative)
@@ -288,25 +288,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      
+
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        
+
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
-          
+
       - name: Checkout scorer
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: opendatahub-io/disconnected-readiness-scorer
           ref: 29ae4bc3591a988c6e3f6ec72d0184c0866650fe # Pinned to specific commit for deterministic execution
           path: scorer
-          
+
       - name: Install dependencies
         run: |
           cd scorer && uv sync --extra report --frozen && make install-arch-analyzer
-          
+
       - name: Run disconnected readiness check
         env:
           INPUT_RULES: ${{ inputs.rules }}
@@ -319,7 +319,7 @@ jobs:
           fi
           # Run analysis and capture JSON output
           uv run main.py "${ARGS[@]}"
-          
+
       - name: Store results as artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -414,11 +414,12 @@ Current coverage: 7/10 issues detected, 3 gaps identified (params.env exclusion 
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/). Install it first.
 
-Then install all dev dependencies:
+Then install all dev dependencies and git hooks:
 
 ```bash
 uv sync --extra dev
 make install-arch-analyzer
+pre-commit install
 ```
 
 **Required:** `pyyaml`, `arch-analyzer` (for production scope detection, overlay classification, and operator analysis).
