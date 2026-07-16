@@ -42,6 +42,11 @@ jobs:
           uv sync --extra report --frozen
           make install-arch-analyzer
 
+      - name: Update repo mappings
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/update_repo_mappings.py || echo "::warning::Failed to update repo mappings, using committed version"
+
       - name: Run batch scorer
         env:
           INPUT_REPO: ${{ inputs.repo }}
