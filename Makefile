@@ -85,4 +85,8 @@ install-arch-analyzer: ## Download arch-analyzer binary to bin/
 		rm -f bin/arch-analyzer; exit 1; \
 	fi
 
+.PHONY: update-repo-mappings
+update-repo-mappings: ## Refresh .github/config/repo_mappings.json from software-catalog
+	@python .github/scripts/update_repo_mappings.py
+
 .DEFAULT_GOAL := help

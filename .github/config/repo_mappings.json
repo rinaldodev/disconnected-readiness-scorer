@@ -127,6 +127,12 @@
       "tier": "upstream"
     },
     {
+      "repo": "kubeflow/kale",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Extensions",
+      "tier": "upstream"
+    },
+    {
       "repo": "kubeflow/kubeflow",
       "jira_project": "RHOAIENG",
       "jira_component": "Notebooks Server",
@@ -199,7 +205,7 @@
       "tier": "upstream"
     },
     {
-      "repo": "llm-d-incubation/llm-d-async",
+      "repo": "llm-d/llm-d-async",
       "jira_project": "INFERENG",
       "jira_component": "llm-d",
       "tier": "upstream"
@@ -256,12 +262,6 @@
       "repo": "ogx-ai/ogx-k8s-operator",
       "jira_project": "RHOAIENG",
       "jira_component": "OGX Core",
-      "tier": "upstream"
-    },
-    {
-      "repo": "openclaw/openclaw",
-      "jira_project": "RHAIENG",
-      "jira_component": "AgentOps",
       "tier": "upstream"
     },
     {
@@ -361,6 +361,69 @@
       "tier": "midstream"
     },
     {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Server",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Extensions",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Images",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/distributed-workload",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Workload Orchestration",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/distributed-workload",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Training Kubeflow",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/distributed-workload",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Kubeflow Spark Operator",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/distributed-workload",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Kubeflow Unified SDK",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/serving",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Model Runtimes",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/architecture-decision-records",
+      "path": "documentation/components/serving",
+      "jira_project": "RHOAIENG",
+      "jira_component": "vLLM",
+      "tier": "midstream"
+    },
+    {
       "repo": "opendatahub-io/argo-workflows",
       "jira_project": "RHOAIENG",
       "jira_component": "AI Pipelines",
@@ -421,6 +484,12 @@
       "tier": "midstream"
     },
     {
+      "repo": "opendatahub-io/central-linter",
+      "jira_project": "AIPCC",
+      "jira_component": "AIPCC Productization",
+      "tier": "midstream"
+    },
+    {
       "repo": "opendatahub-io/client",
       "jira_project": "RHOAIENG",
       "jira_component": "Model Runtimes",
@@ -437,6 +506,12 @@
       "jira_project": "RHOAIENG",
       "jira_component": "Workload Orchestration",
       "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/codeflare-operator",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Workload Orchestration",
+      "tier": "upstream"
     },
     {
       "repo": "opendatahub-io/codeflare-operator-poc",
@@ -580,6 +655,12 @@
       "repo": "opendatahub-io/guides-vllm-llm-d",
       "jira_project": "RHAIENG",
       "jira_component": "llm-d",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/kale",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Extensions",
       "tier": "midstream"
     },
     {
@@ -871,6 +952,12 @@
       "tier": "midstream"
     },
     {
+      "repo": "opendatahub-io/notebooks",
+      "jira_project": "RHAIENG",
+      "jira_component": "Notebooks",
+      "tier": "upstream"
+    },
+    {
       "repo": "opendatahub-io/observatory",
       "jira_project": "RHOAIENG",
       "jira_component": "CI/CD",
@@ -985,12 +1072,6 @@
       "tier": "midstream"
     },
     {
-      "repo": "opendatahub-io/openclaw",
-      "jira_project": "RHAIENG",
-      "jira_component": "AgentOps",
-      "tier": "midstream"
-    },
-    {
       "repo": "opendatahub-io/opencode",
       "jira_project": "RHAIENG",
       "jira_component": "AgentOps",
@@ -1009,6 +1090,83 @@
       "tier": "midstream"
     },
     {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/aigateway",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Inference Gateway",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/modelregistry",
+      "jira_project": "RHOAIENG",
+      "jira_component": "AI Hub",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/feast",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Feature Store",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/trainer",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Fine Tuning",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/trustyai",
+      "jira_project": "RHOAIENG",
+      "jira_component": "AI Safety",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/kserve",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Model Serving",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/modelcontroller",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Model Serving",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/kueue",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Workload Orchestration",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/ray",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Workload Orchestration",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/codeflare",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Workload Orchestration",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-operator",
+      "path": "internal/controller/modules/datasciencepipelines",
+      "jira_project": "RHOAIENG",
+      "jira_component": "AI Pipelines",
+      "tier": "midstream"
+    },
+    {
       "repo": "opendatahub-io/opendatahub-test-plans",
       "jira_project": "RHOAIENG",
       "jira_component": "QE",
@@ -1018,6 +1176,41 @@
       "repo": "opendatahub-io/opendatahub-tests",
       "jira_project": "RHOAIENG",
       "jira_component": "QE",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-tests",
+      "path": "tests/pipelines_components",
+      "jira_project": "RHOAIENG",
+      "jira_component": "AI Pipelines",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-tests",
+      "path": "tests/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Server",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-tests",
+      "path": "tests/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Extensions",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-tests",
+      "path": "tests/workbenches",
+      "jira_project": "RHOAIENG",
+      "jira_component": "Notebooks Images",
+      "tier": "midstream"
+    },
+    {
+      "repo": "opendatahub-io/opendatahub-tests",
+      "path": "tests/ogx",
+      "jira_project": "RHOAIENG",
+      "jira_component": "OGX Core",
       "tier": "midstream"
     },
     {
@@ -1705,6 +1898,12 @@
       "tier": "downstream"
     },
     {
+      "repo": "red-hat-data-services/odh-observability",
+      "jira_project": "RHOAIENG",
+      "jira_component": "AI Core Platform",
+      "tier": "downstream"
+    },
+    {
       "repo": "red-hat-data-services/ogx-distribution",
       "jira_project": "RHOAIENG",
       "jira_component": "OGX Core",
@@ -1934,6 +2133,7 @@
     }
   ],
   "lifecycle": {
-    "last_updated": "2026-07-07T03:03:48.013912+00:00"
+    "last_updated": "2026-07-16T13:42:48.176465+00:00",
+    "source": "https://github.com/opendatahub-io/software-catalog"
   }
 }
